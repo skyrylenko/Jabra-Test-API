@@ -111,3 +111,24 @@ This is a small recruitment task implementation. A production version could addi
 - pagination;
 - automated integration tests;
 - time zone policy and stronger UTC validation.
+
+## Design patterns and approach
+
+The project uses a lightweight layered structure:
+
+- **API layer** — controllers handle HTTP requests and responses.
+- **Application layer** — `ReservationService` contains reservation business rules.
+- **Domain layer** — `Room` and `Reservation` represent core domain entities.
+- **Infrastructure layer** — `RoomBookingDbContext` configures EF Core and SQLite.
+- **Contracts** — DTOs define API input, output, and query models.
+
+The following programming patterns and approaches are used:
+
+- **Dependency Injection** — ASP.NET Core provides the `DbContext` and application services.
+- **Service Layer** — reservation business logic is separated from the controller.
+- **DTO pattern** — API contracts are separated from persistence entities.
+- **Result pattern** — expected reservation outcomes are represented by `ReservationCreationResult` and `ReservationCreationStatus`.
+- **Unit of Work** — `RoomBookingDbContext` coordinates persistence through `SaveChangesAsync()`.
+- **LINQ query expressions** — filtering and conflict detection are expressed as database queries.
+
+No additional GoF patterns were introduced because the scope of the task is intentionally small.
