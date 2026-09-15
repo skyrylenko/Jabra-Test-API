@@ -1,34 +1,63 @@
+using Microsoft.EntityFrameworkCore;
+using RoomBooking.Domain;
+using RoomBooking.Infrastructure;
 
-namespace RoomBooking
+namespace RoomBooking;
+
+public class Program
 {
-	public class Program
+	public static void Main(string[] args)
 	{
-		public static void Main(string[] args)
+		var builder = WebApplication.CreateBuilder(args);
+
+		builder.Services.AddControllers();
+		builder.Services.AddOpenApi();
+
+		builder.Services.AddDbContext<RoomBookingDbContext>(options =>
+			options.UseSqlite(
+				builder.Configuration.GetConnectionString("RoomBookingDatabase")));
+
+		var app = builder.Build();
+
+		using (var scope = app.Services.CreateScope())
 		{
-			var builder = WebApplication.CreateBuilder(args);
+			var dbContext = scope.ServiceProvider
+				.GetRequiredService<RoomBookingDbContext>();
 
-			// Add services to the container.
+			dbContext.Database.EnsureCreated();
 
-			builder.Services.AddControllers();
-			// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
-			builder.Services.AddOpenApi();
-
-			var app = builder.Build();
-
-			// Configure the HTTP request pipeline.
-			if (app.Environment.IsDevelopment())
+			if (!dbContext.Rooms.Any())
 			{
-				app.MapOpenApi();
+				dbContext.Rooms.AddRange(
+					new Room
+					{
+						Name = "Small Room",
+						Capacity = 4
+					},
+					new Room
+					{
+						Name = "Conference Room",
+						Capacity = 10
+					},
+					new Room
+					{
+						Name = "Auditorium",
+						Capacity = 50
+					});
+
+				dbContext.SaveChanges();
 			}
-
-			app.UseHttpsRedirection();
-
-			app.UseAuthorization();
-
-
-			app.MapControllers();
-
-			app.Run();
 		}
+
+		if (app.Environment.IsDevelopment())
+		{
+			app.MapOpenApi();
+		}
+
+		app.UseHttpsRedirection();
+		app.UseAuthorization();
+		app.MapControllers();
+
+		app.Run();
 	}
 }
