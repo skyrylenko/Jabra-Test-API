@@ -9,12 +9,20 @@ namespace RoomBooking.Controllers;
 [Route("api/rooms")]
 public sealed class RoomsController(RoomBookingDbContext dbContext) : ControllerBase
 {
+	/// <summary>
+	/// Returns all rooms or only rooms available during the requested time range.
+	/// </summary>
+	/// <param name="query">
+	/// Optional availability interval. Both <c>from</c> and <c>to</c> must be provided together.
+	/// </param>
+	/// <param name="cancellationToken">Request cancellation token.</param>
+	/// <returns>A list of rooms matching the requested availability criteria.</returns>
 	[HttpGet]
 	[ProducesResponseType(typeof(IReadOnlyCollection<RoomResponse>), StatusCodes.Status200OK)]
 	[ProducesResponseType(StatusCodes.Status400BadRequest)]
 	public async Task<ActionResult<IReadOnlyCollection<RoomResponse>>> GetRooms(
-	[FromQuery] RoomAvailabilityQuery query,
-	CancellationToken cancellationToken)
+		[FromQuery] RoomAvailabilityQuery query,
+		CancellationToken cancellationToken)
 	{
 		if (query.From.HasValue != query.To.HasValue)
 		{
@@ -33,6 +41,7 @@ public sealed class RoomsController(RoomBookingDbContext dbContext) : Controller
 		{
 			roomsQuery = roomsQuery.Where(room =>
 				!room.Reservations.Any(reservation =>
+					// Adjacent reservations are allowed; only overlapping ranges conflict.
 					reservation.Start < query.To.Value &&
 					reservation.End > query.From.Value));
 		}
@@ -48,6 +57,13 @@ public sealed class RoomsController(RoomBookingDbContext dbContext) : Controller
 		return Ok(rooms);
 	}
 
+	/// <summary>
+	/// Returns reservations for a room, optionally filtered by a time range.
+	/// </summary>
+	/// <param name="roomId">The identifier of the room.</param>
+	/// <param name="query">Optional reservation time range.</param>
+	/// <param name="cancellationToken">Request cancellation token.</param>
+	/// <returns>A list of reservations for the specified room.</returns>
 	[HttpGet("{roomId:int}/reservations")]
 	[ProducesResponseType(typeof(IReadOnlyCollection<ReservationResponse>), StatusCodes.Status200OK)]
 	[ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -103,16 +119,22 @@ public sealed class RoomsController(RoomBookingDbContext dbContext) : Controller
 		return Ok(reservations);
 	}
 
-
+	/// <summary>
+	/// Creates a reservation if the room exists and the requested time is available.
+	/// </summary>
+	/// <param name="roomId">The identifier of the room to reserve.</param>
+	/// <param name="request">Reservation title and requested time range.</param>
+	/// <param name="cancellationToken">Request cancellation token.</param>
+	/// <returns>The newly created reservation.</returns>
 	[HttpPost("{roomId:int}/reservations")]
 	[ProducesResponseType(typeof(ReservationResponse), StatusCodes.Status201Created)]
 	[ProducesResponseType(StatusCodes.Status400BadRequest)]
 	[ProducesResponseType(StatusCodes.Status404NotFound)]
 	[ProducesResponseType(StatusCodes.Status409Conflict)]
 	public async Task<ActionResult<ReservationResponse>> CreateReservation(
-	int roomId,
-	[FromBody] CreateReservationRequest request,
-	CancellationToken cancellationToken)
+		int roomId,
+		[FromBody] CreateReservationRequest request,
+		CancellationToken cancellationToken)
 	{
 		if (request.Start >= request.End)
 		{
@@ -131,6 +153,7 @@ public sealed class RoomsController(RoomBookingDbContext dbContext) : Controller
 		var hasConflict = await dbContext.Reservations
 			.AnyAsync(reservation =>
 				reservation.RoomId == roomId &&
+				// Adjacent reservations are allowed; only overlapping ranges conflict.
 				reservation.Start < request.End &&
 				reservation.End > request.Start,
 				cancellationToken);
@@ -140,7 +163,7 @@ public sealed class RoomsController(RoomBookingDbContext dbContext) : Controller
 			return Conflict("The room is already reserved for the requested time range.");
 		}
 
-		var reservation = new RoomBooking.Domain.Reservation
+		var reservation = new Domain.Reservation
 		{
 			RoomId = roomId,
 			Start = request.Start,
