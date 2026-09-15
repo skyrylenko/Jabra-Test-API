@@ -11,11 +11,33 @@ public sealed class RoomsController(RoomBookingDbContext dbContext) : Controller
 {
 	[HttpGet]
 	[ProducesResponseType(typeof(IReadOnlyCollection<RoomResponse>), StatusCodes.Status200OK)]
+	[ProducesResponseType(StatusCodes.Status400BadRequest)]
 	public async Task<ActionResult<IReadOnlyCollection<RoomResponse>>> GetRooms(
-		CancellationToken cancellationToken)
+	[FromQuery] RoomAvailabilityQuery query,
+	CancellationToken cancellationToken)
 	{
-		var rooms = await dbContext.Rooms
-			.AsNoTracking()
+		if (query.From.HasValue != query.To.HasValue)
+		{
+			return BadRequest("'from' and 'to' must be provided together.");
+		}
+
+		if (query.From.HasValue && query.From >= query.To)
+		{
+			return BadRequest("'from' must be earlier than 'to'.");
+		}
+
+		var roomsQuery = dbContext.Rooms
+			.AsNoTracking();
+
+		if (query.From.HasValue && query.To.HasValue)
+		{
+			roomsQuery = roomsQuery.Where(room =>
+				!room.Reservations.Any(reservation =>
+					reservation.Start < query.To.Value &&
+					reservation.End > query.From.Value));
+		}
+
+		var rooms = await roomsQuery
 			.OrderBy(room => room.Name)
 			.Select(room => new RoomResponse(
 				room.Id,
@@ -95,11 +117,6 @@ public sealed class RoomsController(RoomBookingDbContext dbContext) : Controller
 		if (request.Start >= request.End)
 		{
 			return BadRequest("'start' must be earlier than 'end'.");
-		}
-
-		if (string.IsNullOrWhiteSpace(request.Title))
-		{
-			return BadRequest("'title' is required.");
 		}
 
 		var roomExists = await dbContext.Rooms
