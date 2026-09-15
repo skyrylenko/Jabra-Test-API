@@ -429,3 +429,8 @@ FodyWeavers.xsd
 *.msp
 /RoomBooking/RoomBooking/roombooking.db-shm
 /RoomBooking/RoomBooking/roombooking.db-wal
+
+# SQLite database files
+**/*.db
+**/*.db-shm
+**/*.db-wal
