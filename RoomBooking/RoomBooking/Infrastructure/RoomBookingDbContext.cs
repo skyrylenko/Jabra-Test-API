@@ -1,5 +1,7 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.EntityFrameworkCore;
 using RoomBooking.Domain;
+using System.Timers;
 
 namespace RoomBooking.Infrastructure;
 
@@ -42,6 +44,7 @@ public sealed class RoomBookingDbContext(DbContextOptions<RoomBookingDbContext> 
 			entity.Property(reservation => reservation.CreatedAt)
 				.IsRequired();
 
+			// Supports room / time - range lookups when checking reservation conflicts.
 			entity.HasIndex(reservation => new
 			{
 				reservation.RoomId,
@@ -53,7 +56,8 @@ public sealed class RoomBookingDbContext(DbContextOptions<RoomBookingDbContext> 
 				.WithMany(room => room.Reservations)
 				.HasForeignKey(reservation => reservation.RoomId)
 				.OnDelete(DeleteBehavior.Cascade);
-
+			
+			// Reservations must always have a positive duration.
 			entity.ToTable(tableBuilder =>
 				tableBuilder.HasCheckConstraint(
 					"CK_Reservation_End_After_Start",
