@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using RoomBooking.Application.Reservations;
 using RoomBooking.Domain;
 using RoomBooking.Infrastructure;
 
@@ -14,6 +15,8 @@ public class Program
 		builder.Services.AddOpenApi();
 		builder.Services.AddEndpointsApiExplorer();
 		builder.Services.AddSwaggerGen();
+
+		builder.Services.AddScoped<IReservationService, ReservationService>();
 		builder.Services.AddDbContext<RoomBookingDbContext>(options =>
 			options.UseSqlite(
 				builder.Configuration.GetConnectionString("RoomBookingDatabase")));

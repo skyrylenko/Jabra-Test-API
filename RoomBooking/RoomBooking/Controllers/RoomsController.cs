@@ -1,5 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using RoomBooking.Application.Reservations;
+using RoomBooking.Application.Reservations.Results;
 using RoomBooking.Contracts;
 using RoomBooking.Infrastructure;
 
@@ -7,7 +9,7 @@ namespace RoomBooking.Controllers;
 
 [ApiController]
 [Route("api/rooms")]
-public sealed class RoomsController(RoomBookingDbContext dbContext) : ControllerBase
+public sealed class RoomsController(RoomBookingDbContext dbContext, IReservationService reservationService) : ControllerBase
 {
 	/// <summary>
 	/// Returns all rooms or only rooms available during the requested time range.
@@ -136,56 +138,29 @@ public sealed class RoomsController(RoomBookingDbContext dbContext) : Controller
 		[FromBody] CreateReservationRequest request,
 		CancellationToken cancellationToken)
 	{
-		if (request.Start >= request.End)
+		var result = await reservationService.CreateAsync(
+			roomId,
+			request,
+			cancellationToken);
+
+		return result.Status switch
 		{
-			return BadRequest("'start' must be earlier than 'end'.");
-		}
+			ReservationCreationStatus.Created =>
+				CreatedAtAction(
+					nameof(GetReservations),
+					new { roomId },
+					result.Reservation),
 
-		var roomExists = await dbContext.Rooms
-			.AsNoTracking()
-			.AnyAsync(room => room.Id == roomId, cancellationToken);
+			ReservationCreationStatus.InvalidTimeRange =>
+				BadRequest("'start' must be earlier than 'end'."),
 
-		if (!roomExists)
-		{
-			return NotFound($"Room with id {roomId} was not found.");
-		}
+			ReservationCreationStatus.RoomNotFound =>
+				NotFound($"Room with id {roomId} was not found."),
 
-		var hasConflict = await dbContext.Reservations
-			.AnyAsync(reservation =>
-				reservation.RoomId == roomId &&
-				// Adjacent reservations are allowed; only overlapping ranges conflict.
-				reservation.Start < request.End &&
-				reservation.End > request.Start,
-				cancellationToken);
+			ReservationCreationStatus.Conflict =>
+				Conflict("The room is already reserved for the requested time range."),
 
-		if (hasConflict)
-		{
-			return Conflict("The room is already reserved for the requested time range.");
-		}
-
-		var reservation = new Domain.Reservation
-		{
-			RoomId = roomId,
-			Start = request.Start,
-			End = request.End,
-			Title = request.Title.Trim(),
-			CreatedAt = DateTime.UtcNow
+			_ => Problem("An unexpected error occurred.")
 		};
-
-		dbContext.Reservations.Add(reservation);
-		await dbContext.SaveChangesAsync(cancellationToken);
-
-		var response = new ReservationResponse(
-			reservation.Id,
-			reservation.RoomId,
-			reservation.Start,
-			reservation.End,
-			reservation.Title,
-			reservation.CreatedAt);
-
-		return CreatedAtAction(
-			nameof(GetReservations),
-			new { roomId },
-			response);
 	}
 }
