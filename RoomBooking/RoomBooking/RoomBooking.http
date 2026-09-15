@@ -1,6 +1,39 @@
 @RoomBooking_HostAddress = http://localhost:5132
 
-GET {{RoomBooking_HostAddress}}/weatherforecast/
+### Get all rooms
+GET {{RoomBooking_HostAddress}}/api/rooms
 Accept: application/json
+
+### Get available rooms for a time range
+GET {{RoomBooking_HostAddress}}/api/rooms?from=2026-09-17T10:00:00&to=2026-09-17T11:00:00
+Accept: application/json
+
+### Get all reservations for a room
+GET {{RoomBooking_HostAddress}}/api/rooms/1/reservations
+Accept: application/json
+
+### Get room reservations for a time range
+GET {{RoomBooking_HostAddress}}/api/rooms/1/reservations?from=2026-09-17T10:00:00&to=2026-09-17T11:00:00
+Accept: application/json
+
+### Create a reservation
+POST {{RoomBooking_HostAddress}}/api/rooms/1/reservations
+Content-Type: application/json
+
+{
+  "start": "2026-09-17T10:00:00",
+  "end": "2026-09-17T11:00:00",
+  "title": "Team meeting"
+}
+
+### Create an overlapping reservation (expected 409 Conflict)
+POST {{RoomBooking_HostAddress}}/api/rooms/1/reservations
+Content-Type: application/json
+
+{
+  "start": "2026-09-17T10:30:00",
+  "end": "2026-09-17T11:30:00",
+  "title": "Overlapping meeting"
+}
 
 ###
