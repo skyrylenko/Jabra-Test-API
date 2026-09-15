@@ -109,7 +109,7 @@ This is a small recruitment task implementation. A production version could addi
 - structured logging;
 - global exception handling;
 - pagination;
-- automated integration tests;
+- unit and integration tests were not implemented because they were not requested for this task and the implementation time was limited;
 - time zone policy and stronger UTC validation.
 
 ## Design patterns and approach

@@ -1,7 +1,5 @@
-﻿using Microsoft.AspNetCore.Http.HttpResults;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using RoomBooking.Domain;
-using System.Timers;
 
 namespace RoomBooking.Infrastructure;
 
