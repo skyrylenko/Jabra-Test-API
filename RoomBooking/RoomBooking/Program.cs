@@ -12,12 +12,19 @@ public class Program
 
 		builder.Services.AddControllers();
 		builder.Services.AddOpenApi();
-
+		builder.Services.AddEndpointsApiExplorer();
+		builder.Services.AddSwaggerGen();
 		builder.Services.AddDbContext<RoomBookingDbContext>(options =>
 			options.UseSqlite(
 				builder.Configuration.GetConnectionString("RoomBookingDatabase")));
 
 		var app = builder.Build();
+		
+		if (app.Environment.IsDevelopment())
+		{
+			app.UseSwagger();
+			app.UseSwaggerUI();
+		}
 
 		using (var scope = app.Services.CreateScope())
 		{

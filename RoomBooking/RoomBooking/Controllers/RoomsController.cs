@@ -80,4 +80,72 @@ public sealed class RoomsController(RoomBookingDbContext dbContext) : Controller
 
 		return Ok(reservations);
 	}
+
+
+	[HttpPost("{roomId:int}/reservations")]
+	[ProducesResponseType(typeof(ReservationResponse), StatusCodes.Status201Created)]
+	[ProducesResponseType(StatusCodes.Status400BadRequest)]
+	[ProducesResponseType(StatusCodes.Status404NotFound)]
+	[ProducesResponseType(StatusCodes.Status409Conflict)]
+	public async Task<ActionResult<ReservationResponse>> CreateReservation(
+	int roomId,
+	[FromBody] CreateReservationRequest request,
+	CancellationToken cancellationToken)
+	{
+		if (request.Start >= request.End)
+		{
+			return BadRequest("'start' must be earlier than 'end'.");
+		}
+
+		if (string.IsNullOrWhiteSpace(request.Title))
+		{
+			return BadRequest("'title' is required.");
+		}
+
+		var roomExists = await dbContext.Rooms
+			.AsNoTracking()
+			.AnyAsync(room => room.Id == roomId, cancellationToken);
+
+		if (!roomExists)
+		{
+			return NotFound($"Room with id {roomId} was not found.");
+		}
+
+		var hasConflict = await dbContext.Reservations
+			.AnyAsync(reservation =>
+				reservation.RoomId == roomId &&
+				reservation.Start < request.End &&
+				reservation.End > request.Start,
+				cancellationToken);
+
+		if (hasConflict)
+		{
+			return Conflict("The room is already reserved for the requested time range.");
+		}
+
+		var reservation = new RoomBooking.Domain.Reservation
+		{
+			RoomId = roomId,
+			Start = request.Start,
+			End = request.End,
+			Title = request.Title.Trim(),
+			CreatedAt = DateTime.UtcNow
+		};
+
+		dbContext.Reservations.Add(reservation);
+		await dbContext.SaveChangesAsync(cancellationToken);
+
+		var response = new ReservationResponse(
+			reservation.Id,
+			reservation.RoomId,
+			reservation.Start,
+			reservation.End,
+			reservation.Title,
+			reservation.CreatedAt);
+
+		return CreatedAtAction(
+			nameof(GetReservations),
+			new { roomId },
+			response);
+	}
 }
